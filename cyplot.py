@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-
-from bqplot import DateScale, LinearScale, Axis, Lines, Scatter, Bars, Hist, Figure
+from bqplot import DateScale, LinearScale, OrdinalScale, Axis, Lines, Scatter, Bars, Hist, Figure
 from bqplot.interacts import (
     FastIntervalSelector, IndexSelector, BrushIntervalSelector,
     BrushSelector, MultiSelector, LassoSelector, PanZoom, HandDraw
@@ -29,6 +28,9 @@ class Cyplot:
         
         self.create_inter()
     
+    def __display__(self):
+        print("display")
+        return 5#self.fig
     
     def plot_ts(self, ts, yl):
         self.xl = ts.index.name
@@ -78,6 +80,8 @@ class Cyplot:
         br_intsel = BrushIntervalSelector(scale=xScale, marks=mark)
         index_sel = IndexSelector(scale=xScale, marks=mark)
         int_sel = FastIntervalSelector(scale=xScale, marks=mark)
+        
+        br_sel = BrushSelector(x_scale=xScale, y_scale=yScale, marks=mark, color='red')
 
         # Hand Draw might be added later
         # hds = [HandDraw(lines=line) for line in mark]
@@ -87,19 +91,29 @@ class Cyplot:
         deb = HTML()
         deb.value = '[]'
         
+        # deb = HTML(value='[]')
+        
         def test_callback(change):
-            deb.value = str(change.new)
+            deb.value = "The selected range is {} on {}".format(change.new, self.xl)#str(change.new)
     
+        def brush_callback(change):
+            #deb.value = str(br_sel.selected)
+            xr = [br_sel.selected[0][0],br_sel.selected[1][0]]
+            yr = [br_sel.selected[0][1],br_sel.selected[1][1]]
+            deb.value = "The brushed area is {} on {},  {} on {}".format(str(xr),self.xl,str(yr), self.yl)
+
         multi_sel.observe(test_callback, names=['selected'])
         br_intsel.observe(test_callback, names=['selected'])
         index_sel.observe(test_callback, names=['selected'])
         int_sel.observe(test_callback, names=['selected'])
         
+        br_sel.observe(brush_callback, names=['brushing'])
+        
     
         from collections import OrderedDict
         
         odict = OrderedDict([('FastIntervalSelector', int_sel), ('IndexSelector', index_sel),
-                             ('BrushIntervalSelector', br_intsel), ('MultiSelector', multi_sel), 
+                             ('BrushIntervalSelector', br_intsel), ('MultiSelector', multi_sel), ('BrushSelector', br_sel),
                              ('PanZoom', pz), ('None', None)])
         
         #         for ind, hd in enumerate(hds):
@@ -118,4 +132,21 @@ class Cyplot:
             self.xScale = xScale
         if yScale is not None:
             self.yScale = yScale
+    
+    def show(self):
+        # self.fig?
+        return self.vbox
+    
+    def show_ref(self):
+        # self.fig?
+        return self.fig
+
         
+    def connect(self, fig=None, vbox=None):
+        # Connect fig / vbox?
+        
+        if fig is not None:
+            fig = self.fig
+        if vbox is not None:
+            vbox = self.vbox
+    
