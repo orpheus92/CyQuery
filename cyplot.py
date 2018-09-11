@@ -1,18 +1,19 @@
+import pandas as pd
+import numpy as np
+
 from bqplot import DateScale, LinearScale, OrdinalScale, Axis, Lines, Scatter, Bars, Hist, Figure
 from bqplot.interacts import (
     FastIntervalSelector, IndexSelector, BrushIntervalSelector,
     BrushSelector, MultiSelector, LassoSelector, PanZoom, HandDraw
 )
 from traitlets import link
-
-import pandas as pd
-import numpy as np
+from collections import OrderedDict
 from IPython.display import display
 from ipywidgets import ToggleButtons, VBox, HTML
 
 
 class Cyplot:
-    def __init__(self, data, index=None, ylabel=None):
+    def __init__(self, data, index=None, ylabel=None, interaction=None, cb=None):
         
         if isinstance(data, pd.Series):
             # Pandas Series 
@@ -31,7 +32,6 @@ class Cyplot:
         else:
             print("The input data type is not supported")
 
-        # print(self.data)
         self.xlabel = self.data.index.name if self.data.index.name is not None else "index"
         
         self.cols = list(self.data)
@@ -43,34 +43,12 @@ class Cyplot:
         self.xScale = LinearScale()
         self.yScale = LinearScale()
         
-        self.plot_data(self.data)
+        self.create_fig(self.data)
         
-        self.create_inter()
+        self.create_plot(interaction, cb)
     
         
-    def plot_data(self, ts):
-        
-        # self.xl = ts.index.name
-
-        # yls = list(ts)
-
-        # Right now Assume lowest level in hierarchy is the legend
-        # if yl is not None:
-        #     self.yl = yl
-        #     self.lbs = [j[-1] for j in yls]
-
-        # else:
-        #     cols = len(yls)
-        #     hier = len(yls[0])
-        
-        #     # THIS MIGHT BE CHANGED LATER
-        #     self.yl = yls[0]
-                    
-        #     self.lbs = [j[-1] for j in yls]
-        
-        # Default Linear Scale
-        # self.xScale = LinearScale()
-        # self.yScale = LinearScale()
+    def create_fig(self, ts):
         
         ts.sort_index(inplace=True)
         
@@ -79,8 +57,6 @@ class Cyplot:
         self.xd = df[self.xlabel]
         self.yd = df[self.cols].T
 
-        # print(self.xd)
-        # print(self.yd)
         
         line = Lines(x = self.xd,y = self.yd, scales = {'x': self.xScale, 'y': self.yScale},labels=self.legends, display_legend=True)# axes_options=axes_options)
 
@@ -89,14 +65,52 @@ class Cyplot:
 
         self.fig = Figure(marks=[line], axes=[x_axis,y_axis])
         
+    
+    def create_plot(self, interaction=None, cb=None):# xScale=None, yScale=None, mark=None, fig=None):
         
-    def create_inter(self, xScale=None, yScale=None, mark=None, fig=None):
-        
-        xScale = self.xScale if xScale is None else xScale
-        yScale = self.yScale if yScale is None else yScale
-        fig = self.fig if fig is None else fig
-        mark = fig.marks if mark is None else mark
+        xScale = self.xScale #  if xScale is None else xScale
+        yScale = self.yScale #  if yScale is None else yScale
+        fig = self.fig # if fig is None else fig
+        mark = fig.marks # if mark is None else mark
 
+        self.deb = HTML()
+        self.default_inter(cb) #xScale, yScale, fig, mark, deb)
+
+        if interaction is None: 
+            odict = self.interaction_dict
+        else:
+            # Interaction is given 
+            odict = OrderedDict()
+            if isinstance(interaction, list):
+                for inter in interaction:
+                    if inter in self.interaction_dict:
+                        odict[inter] = self.interaction_dict[inter]
+            else:
+                if interaction in self.interaction_dict:
+                    odict[interaction] = self.interaction_dict[interaction]
+                    
+        selection_interacts = ToggleButtons(options=odict)
+
+        link((selection_interacts, 'value'), (fig, 'interaction'))
+        
+        self.vbox = VBox([self.deb, fig, selection_interacts], align_self='stretch')
+    
+    def __display__(self):
+        # Not Able to Figure Out
+        
+        print("display")
+        # return 5#self.fig
+        display(self.fig)
+        # return 1
+    
+    def default_inter(self, cb):#, xScale, yScale, fig, mark, deb):
+        
+        xScale = self.xScale #  if xScale is None else xScale
+        yScale = self.yScale #  if yScale is None else yScale
+        fig = self.fig # if fig is None else fig
+        mark = fig.marks # if mark is None else mark
+        
+        
         multi_sel = MultiSelector(scale=xScale, marks=mark)
         br_intsel = BrushIntervalSelector(scale=xScale, marks=mark)
         index_sel = IndexSelector(scale=xScale, marks=mark)
@@ -109,20 +123,28 @@ class Cyplot:
         
         pz = PanZoom(scales={'x': [xScale], 'y': [yScale]})
 
-        deb = HTML()
-        deb.value = '[]'
+        self.deb.value = ''#'[]'
         
         # deb = HTML(value='[]')
         
         def test_callback(change):
-            deb.value = "The selected range is {} on {}".format(change.new, self.xl)#str(change.new)
+            self.deb.value = "The selected range is {} on {}".format(change.new, self.xlabel)#str(change.new)
     
         def brush_callback(change):
             #deb.value = str(br_sel.selected)
             xr = [br_sel.selected[0][0],br_sel.selected[1][0]]
             yr = [br_sel.selected[0][1],br_sel.selected[1][1]]
-            deb.value = "The brushed area is {} on {},  {} on {}".format(str(xr),self.xl,str(yr), self.yl)
+            self.deb.value = "The brushed area is {} on {},  {} on {}".format(str(xr),self.xlabel,str(yr), self.ylabel)
 
+        
+        if cb is not None:
+            def mycb(change):
+                
+                self.deb.value = str(cb(change.new))# cb(change.new)
+                
+            test_callback = mycb
+            brush_callback = mycb
+        
         multi_sel.observe(test_callback, names=['selected'])
         br_intsel.observe(test_callback, names=['selected'])
         index_sel.observe(test_callback, names=['selected'])
@@ -130,30 +152,14 @@ class Cyplot:
         
         br_sel.observe(brush_callback, names=['brushing'])
         
-    
-        from collections import OrderedDict
-        
-        odict = OrderedDict([('FastIntervalSelector', int_sel), ('IndexSelector', index_sel),
-                             ('BrushIntervalSelector', br_intsel), ('MultiSelector', multi_sel), ('BrushSelector', br_sel),
+        odict = OrderedDict([('FastInterval', int_sel), ('Index', index_sel),
+                             ('BrushX', br_intsel), ('MultiBrush', multi_sel), ('Brush', br_sel),
                              ('PanZoom', pz), ('None', None)])
         
-        #         for ind, hd in enumerate(hds):
-        #             odict['HandDraw'+str(ind)] = hd 
-            
-        selection_interacts = ToggleButtons(options=odict)
-
-        link((selection_interacts, 'value'), (fig, 'interaction'))
+        self.interaction_dict = odict
         
-        self.vbox = VBox([deb, fig, selection_interacts], align_self='stretch')
+        # return odict
     
-    def __display__(self):
-        # This will be changed later
-        
-        print("display")
-        # return 5#self.fig
-        display(self.fig)
-        
-        
     def setScale(self,xScale=None, yScale=None):
         if xScale is not None:
             self.xScale = xScale
