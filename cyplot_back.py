@@ -15,15 +15,24 @@ from ipywidgets import ToggleButtons, VBox, HTML
 class Cyplot:
     def __init__(self, data, index=None, ylabel=None, interaction=None, cb=None):
         
+        self.set_data(data, index, ylabel)
+        
+        self.create_fig(self.data)
+        
+        # self.enable, self.disable, 
+        # self.on
+        
+        
+        self.create_plot(interaction, cb)
+    
+        
+    def set_data(self, data, index, ylabel):
+        
         if isinstance(data, pd.Series):
-            # Pandas Series 
             self.data = data
             
         elif isinstance(data, pd.DataFrame):
             # Pandas DataFrame
-
-            #if data.index.name is not None:
-            #    self.ts = data
                 
             if index is not None:
                 self.data = data.set_index(index)
@@ -32,6 +41,7 @@ class Cyplot:
         else:
             print("The input data type is not supported")
 
+        
         self.xlabel = self.data.index.name if self.data.index.name is not None else "index"
         
         self.cols = list(self.data)
@@ -43,11 +53,7 @@ class Cyplot:
         self.xScale = LinearScale()
         self.yScale = LinearScale()
         
-        self.create_fig(self.data)
-        
-        self.create_plot(interaction, cb)
     
-        
     def create_fig(self, ts):
         
         ts.sort_index(inplace=True)
@@ -128,7 +134,7 @@ class Cyplot:
         # deb = HTML(value='[]')
         
         def test_callback(change):
-            self.deb.value = "The selected range is {} on {}".format(change.new, self.xlabel)#str(change.new)
+            self.deb.value = "The selected range is {} on {} with {}".format(change.new, self.xlabel, br_intsel.selke)#str(change.new)
     
         def brush_callback(change):
             #deb.value = str(br_sel.selected)
@@ -145,12 +151,31 @@ class Cyplot:
             test_callback = mycb
             brush_callback = mycb
         
-        multi_sel.observe(test_callback, names=['selected'])
-        br_intsel.observe(test_callback, names=['selected'])
-        index_sel.observe(test_callback, names=['selected'])
-        int_sel.observe(test_callback, names=['selected'])
+        #         multi_sel.observe(test_callback, names=['selected'])
+        #         br_intsel.observe(test_callback, names=['brushing'])#'selected'])
+        #         index_sel.observe(test_callback, names=['selected'])
+        #         int_sel.observe(test_callback, names=['selected'])
+
+        #         br_sel.observe(brush_callback, names=['selected'])#'brushing'])
+        #         # selctedX, selectedY
         
-        br_sel.observe(brush_callback, names=['brushing'])
+        
+        # Initialize Selector
+        # Initialize CB
+        # Observe
+        
+        # Can listen to many traitlets here 
+        # General one, brushing 
+        # Other selected, color, line_width ..., selected_x, selected_y 
+        
+        multi_sel.observe(test_callback, names=['brushing'])
+        br_intsel.observe(test_callback, names=['brushing'])
+        index_sel.observe(test_callback, names=['brushing'])
+        int_sel.observe(test_callback, names=['brushing'])
+        
+        br_sel.observe(brush_callback, names=['brushing'])#'brushing'])
+        # selctedX, selectedY
+        
         
         odict = OrderedDict([('FastInterval', int_sel), ('Index', index_sel),
                              ('BrushX', br_intsel), ('MultiBrush', multi_sel), ('Brush', br_sel),
