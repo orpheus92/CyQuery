@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="90300292-160b-4664-b5eb-6c8c32fda80f" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/CyQuery.iml" afterPath="$PROJECT_DIR$/.idea/CyQuery.iml" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/Di's Test-checkpoint.ipynb" afterPath="$PROJECT_DIR$/.ipynb_checkpoints/Di's Test-checkpoint.ipynb" />
-      <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/cyplot-checkpoint.py" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/Di's Test.ipynb" afterPath="$PROJECT_DIR$/Di's Test.ipynb" />
-      <change beforePath="$PROJECT_DIR$/cyplot.py" afterPath="$PROJECT_DIR$/cyplot.py" />
-    </list>
+    <list default="true" id="90300292-160b-4664-b5eb-6c8c32fda80f" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -66,8 +58,8 @@
       <file leaf-file-name="cyplot.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/cyplot.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="448">
-              <caret line="16" column="0" lean-forward="true" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
+            <state relative-caret-position="644">
+              <caret line="23" column="35" lean-forward="true" selection-start-line="23" selection-start-column="35" selection-end-line="23" selection-end-column="35" />
               <folding>
                 <element signature="e#0#19#0" expanded="true" />
                 <element signature="e#4323#4924#0" expanded="false" />
@@ -166,7 +158,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="7">
     <option name="x" value="2995" />
     <option name="y" value="87" />
     <option name="width" value="1438" />
@@ -236,7 +228,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="2389" y="-11" width="2902" height="1582" extended-state="6" />
+    <frame x="2389" y="-11" width="2902" height="1582" extended-state="7" />
     <editor active="true" />
     <layout>
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -586,8 +578,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/cyplot.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="448">
-          <caret line="16" column="0" lean-forward="true" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
+        <state relative-caret-position="644">
+          <caret line="23" column="35" lean-forward="true" selection-start-line="23" selection-start-column="35" selection-end-line="23" selection-end-column="35" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
             <element signature="e#4323#4924#0" expanded="false" />
