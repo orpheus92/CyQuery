@@ -36,6 +36,29 @@ class Cyplot:
                 self.tooltips.append(self.interactions[inter]['tooltip'])
                 self.icons.append(self.interactions[inter]['icon'])
 
+        # self.buttons
+        # self.selection_interacts = ToggleButtons(options=self.active)
+
+        # self.odict = OrderedDict()
+        # for i in self.active:
+        #     self.odict[i] = self.active[i]['selector']
+
+        #         widgets.ToggleButton(
+        #             value=False,
+        #             description='Click me',
+        #             disabled=False,
+        #             button_style='', # 'success', 'info', 'warning', 'danger' or ''
+        #             tooltip='Description',
+        #             icon='check')
+
+        # widgets.ToggleButtons(
+        #     options=['Slow', 'Regular', 'Fast'],
+        #     description='Speed:',
+        #     disabled=False,
+        #     button_style='', # 'success', 'info', 'warning', 'danger' or ''
+        #     tooltips=self.tooltips,# ['Description of slow', 'Description of regular', 'Description of fast'],
+        #     icons=self.icons# ['check'] * 3
+        # )
 
         margin = dict(top=0, bottom=30, left=50, right=50)
 
@@ -74,6 +97,20 @@ class Cyplot:
             else:
                 print("Can't turn on {}".format(interaction))
 
+        # elif isinstance(interaction,list):
+        #     num = len(interaction)
+        #     for i in range(num):
+        #         if cb is not None:
+        #             self.on(interaction[i], cb[i])
+        #         else:
+        #             self.on(interaction[i], None)
+        #
+        # elif isinstance(interaction, dict):
+        #     for k in interaction:
+        #         self.on(k, interaction[k])
+        #     # print('Each interaction has a cb')
+        #
+        # if interaction == 'brush':
         #
         #     def _cb(change):
         #
@@ -198,30 +235,30 @@ class Cyplot:
 
         self.interactions['brushes'] = {}
         self.interactions['brushes']['selector'] = multi_sel
-        self.interactions['brushes']['icon'] = 'retweet'
+        self.interactions['brushes']['icon'] = 'th-large'
         self.interactions['brushes']['tooltip'] = 'Multiple Brushes'
-        self.interactions['brushes']['name'] = '0'
+        self.interactions['brushes']['name'] = '   '
         self.interactions['brushes']['watch'] = 'selected'
 
         self.interactions['brush_x'] = {}
         self.interactions['brush_x']['selector'] = br_intsel
         self.interactions['brush_x']['icon'] = 'arrows-h'
         self.interactions['brush_x']['tooltip'] = 'Horizontal Brush'
-        self.interactions['brush_x']['name'] = '1'
+        self.interactions['brush_x']['name'] = '     '
         self.interactions['brush_x']['watch'] = 'selected'
 
         self.interactions['brush_fast'] = {}
         self.interactions['brush_fast']['selector'] = int_sel
         self.interactions['brush_fast']['icon'] = 'exchange'
         self.interactions['brush_fast']['tooltip'] = 'Fast Brush'
-        self.interactions['brush_fast']['name'] = '2'
+        self.interactions['brush_fast']['name'] = '      '
         self.interactions['brush_fast']['watch'] = 'selected'
 
         self.interactions['brush'] = {}
         self.interactions['brush']['selector'] = br_sel
         self.interactions['brush']['icon'] = 'retweet'
         self.interactions['brush']['tooltip'] = 'Brush'
-        self.interactions['brush']['name'] = '3'
+        self.interactions['brush']['name'] = '       '
         self.interactions['brush']['watch'] = 'brushing'
 
         self.interactions['bar'] = {}
