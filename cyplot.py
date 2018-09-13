@@ -9,8 +9,9 @@ from bqplot.interacts import (
 from traitlets import link
 from collections import OrderedDict
 from IPython.display import display
-from ipywidgets import ToggleButtons, VBox, HTML
+from ipywidgets import ToggleButtons, VBox, HTML, Layout
 from bqplot.toolbar import Toolbar
+
 
 class Cyplot:
     def __init__(self, data, index=None, ylabel=None):
@@ -19,21 +20,44 @@ class Cyplot:
 
         self.interaction_map()
 
-        self.active = {}
-
+        self.enabled = []
+        self.inters = OrderedDict()
+        self.tooltips = []
+        self.icons = []
     def enable(self, interactions):
         if isinstance(interactions, str):
             interactions = [interactions]
 
         for inter in interactions:
-            if inter in self.interactions:
-                self.active[inter] = self.interactions[inter]
+            if inter in self.interactions and inter not in self.enabled:
+                self.enabled.append(inter)# [self.interactions[inter]['name']] = self.interactions[inter]['selector']
 
-        self.selection_interacts = ToggleButtons(options=self.active)
+                self.inters[self.interactions[inter]['name']] = self.interactions[inter]['selector']
+                self.tooltips.append(self.interactions[inter]['tooltip'])
+                self.icons.append(self.interactions[inter]['icon'])
 
+
+        margin = dict(top=0, bottom=30, left=50, right=50)
+
+        self.selection_interacts = ToggleButtons(
+            options=self.inters,  # OrderedDict([
+            descrition='interaction',
+            tooltips=self.tooltips,  # ['Description of slow', 'Description of regular', 'Description of fast'],
+            icons=self.icons,  # ['check'] * 3
+            style={'button_width': '50px','font_weight':'1', 'font_size':'200px'},#,'description_width':'0px'},
+            layout = Layout(justify_content = 'flex-end',  margin='0px 135px 0px 0px')#margin)#justify-content='fkex-end'
+
+        )
+        # self.selection_interacts.value gives the current interaction (the one that is clicked)
         link((self.selection_interacts, 'value'), (self.fig, 'interaction'))
 
-        self.vbox = VBox([self.fig, self.deb, self.deb2, self.selection_interacts], align_self='stretch')
+        box_layout = Layout(display='flex',
+                            flex_flow='column',
+                            align_items='stretch',
+                            # border='solid',
+                            width='50%')
+
+        self.vbox = VBox([self.selection_interacts, self.fig, self.deb, self.deb2], layout=box_layout)
 
     def disable(self, interactions):
         # Will be implemented later
@@ -41,76 +65,47 @@ class Cyplot:
 
     def on(self, interaction, cb):
 
-        if interaction == 'brush':
-    
-            def _cb(change):
+        if isinstance(interaction, str):
+            # self.on([iteraction],[cb])
+            if interaction in self.enabled:
+                func = self.interactions[interaction]['selector']  # ['selector']
+                func.observe(cb, names=[self.interactions[interaction]['watch']])
 
-                if isinstance(change.new, np.ndarray):
-                    # Always x range for now
+            else:
+                print("Can't turn on {}".format(interaction))
 
-                    xr = change.new
-                    yr = [None, None]
-                    box = [[xr[0], yr[0]], [xr[1], yr[1]]]
-                    self.deb.value = "The brushed area is {} ".format(str(box))  # , self.xlabel, str(yr),self.ylabel)
-                    self.deb2.value = "The selected indices are {} ".format(str(self.fig.marks[0].selected))  # , self.xlabel, str(yr),self.ylabel)
-                    # self.deb2.value = "The brushed area is {} ".format("????????/")  # , self.xlabel, str(yr),self.ylabel)
+        #
+        #     def _cb(change):
+        #
+        #         if isinstance(change.new, np.ndarray):
+        #             # Always x range for now
+        #
+        #             xr = change.new
+        #             yr = [None, None]
+        #             box = [[xr[0], yr[0]], [xr[1], yr[1]]]
+        #             self.deb.value = "The brushed area is {} ".format(str(box))  # , self.xlabel, str(yr),self.ylabel)
+        #             # self.deb2.value = "The selected indices are {} ".format(
+        #             #     str(self.fig.marks[0].selected))  # , self.xlabel, str(yr),self.ylabel)
+        #             self.deb2.value = str(change)
+        #
+        #             cb(box)
+        #             # brushing, multiple
+        #             # if not change.new:
+        #         else:
+        #
+        #             box = self.interactions['brush']['selector'].selected # self.enabled['brush'].selected
+        #             self.deb.value = "The brushed area is {} ".format(str(box))  # , self.xlabel, str(yr),self.ylabel)
+        #             self.deb2.value = "The selected indices are {} ".format(
+        #                 str(self.fig.marks[0].selected))  # , self.xlabel, str(yr),self.ylabel)
+        #
+        #             cb(box)
+        #
 
-                    cb(box)
-                    # brushing, multiple
-                    # if not change.new:
-                else:
-
-                    box = self.active['Brush'].selected
-                    self.deb.value = "The brushed area is {} ".format(str(box))  # , self.xlabel, str(yr),self.ylabel)
-                    self.deb2.value = "The selected indices are {} ".format(str(self.fig.marks[0].selected))  # , self.xlabel, str(yr),self.ylabel)
-
-                    cb(box)
-
-            if 'Multiple_Brush' in self.active:
-                func = self.active['Multiple_Brush']
-                func.observe(_cb, names=['selected'])
-
-            if 'BrushX' in self.active:
-                func = self.active['BrushX']
-                func.observe(_cb, names=['selected'])
-
-            if 'Fast_Brush' in self.active:
-                func = self.active['Fast_Brush']
-                func.observe(_cb, names=['selected'])
-
-            if 'Brush' in self.active:
-                func = self.active['Brush']
-                func.observe(_cb, names=['brushing'])
-
-        elif interaction == 'panzoom':
-            def _cb(change):
-                self.deb.value = "The Current Scale is {} ".format(str(change.new))
-                # self.deb2.value = "The Current Scale is {} ".format(str(change.new))
-
-                cb(change.new)
-
-            if "Pan_Zoom" in self.active:
-                func = self.active['Pan_Zoom']
-                func.observe(_cb, names=['scales'])
-
-
-        elif interaction == 'selector':
-            def _cb(change):
-                self.deb.value = "The selected index is {} ".format(str(change.new))
-                self.deb2.value = "The selected points are {} on {} ".format(self.xlabel, str(self.fig.marks[0].selected))
-
-                cb(change.new)
-
-            if "Index_Selector" in self.active:
-                func = self.active['Index_Selector']
-                func.observe(_cb, names=['selected'])
-        else:
-            print('More interactions will be added')
 
     def set_data(self, data, index, ylabel, add=False):
-        
-        # add decide whether draw figure on top 
-        
+
+        # add decide whether draw figure on top
+
         if isinstance(data, pd.Series):
             self.data = data
 
@@ -144,9 +139,9 @@ class Cyplot:
 
         self.create_fig(self.data)
 
-    def add_data(data):
+    def add_data(self, data):
         self.set_data(data, add=True)
-    
+
     def create_fig(self, ts):
 
         ts.sort_index(inplace=True)
@@ -156,26 +151,28 @@ class Cyplot:
         self.xd = df[self.xlabel]
         self.yd = df[self.cols].T
 
-        
-        #line_style
-        #{‘solid’, ‘dashed’, ‘dotted’, ‘dash_dotted’} – Line style.
+        # line_style
+        # {‘solid’, ‘dashed’, ‘dotted’, ‘dash_dotted’} – Line style.
 
         line = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
-                     display_legend=True, line_style='solid', marker='circle', selected_style={'opacity': '1'}, 
-                     unselected_style={'opacity': '0.2'})#enable_hover=True)  # axes_options=axes_options)
+                     display_legend=True, line_style='solid', marker='circle', selected_style={'opacity': '1'},
+                     unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options)
 
         x_axis = Axis(scale=self.xScale, label=self.xlabel, grid_lines='none')
         y_axis = Axis(scale=self.yScale, label=self.ylabel, orientation='vertical', grid_lines='none')
 
-        self.fig = Figure(marks=[line], axes=[x_axis, y_axis], legend_location='top-right')
+        margin = dict(top=0, bottom=30, left=50, right=50)
+
+        self.fig = Figure(marks=[line], axes=[x_axis, y_axis], legend_location='top-right',fig_margin= margin)#{'top':50,'left':60})
 
         self.deb = HTML()
         self.deb2 = HTML()
 
     def _ipython_display_(self):
-        tb = Toolbar(figure=self.fig)
 
-        display(self.vbox, tb)
+        # tb = Toolbar(figure=self.fig)
+
+        display(self.vbox)  # , tb)
 
     def interaction_map(self):  # , xScale, yScale, fig, mark, deb):
 
@@ -193,17 +190,58 @@ class Cyplot:
         br_sel = BrushSelector(x_scale=xScale, y_scale=yScale, marks=mark, color='red')
         pz = PanZoom(scales={'x': [xScale], 'y': [yScale]})
 
-        self.interactions['Multiple_Brush'] = multi_sel
-        self.interactions['BrushX'] = br_intsel
-        self.interactions['Fast_Brush'] = int_sel
-        self.interactions['Brush'] = br_sel
-        self.interactions['Index_Selector'] = index_sel
-        self.interactions['Pan_Zoom'] = pz
+        # def cb1(change):
+        #
+        # def cb2(change):
+        #
+        # def cb3(change):
+
+        self.interactions['brushes'] = {}
+        self.interactions['brushes']['selector'] = multi_sel
+        self.interactions['brushes']['icon'] = 'retweet'
+        self.interactions['brushes']['tooltip'] = 'Multiple Brushes'
+        self.interactions['brushes']['name'] = '0'
+        self.interactions['brushes']['watch'] = 'selected'
+
+        self.interactions['brush_x'] = {}
+        self.interactions['brush_x']['selector'] = br_intsel
+        self.interactions['brush_x']['icon'] = 'arrows-h'
+        self.interactions['brush_x']['tooltip'] = 'Horizontal Brush'
+        self.interactions['brush_x']['name'] = '1'
+        self.interactions['brush_x']['watch'] = 'selected'
+
+        self.interactions['brush_fast'] = {}
+        self.interactions['brush_fast']['selector'] = int_sel
+        self.interactions['brush_fast']['icon'] = 'exchange'
+        self.interactions['brush_fast']['tooltip'] = 'Fast Brush'
+        self.interactions['brush_fast']['name'] = '2'
+        self.interactions['brush_fast']['watch'] = 'selected'
+
+        self.interactions['brush'] = {}
+        self.interactions['brush']['selector'] = br_sel
+        self.interactions['brush']['icon'] = 'retweet'
+        self.interactions['brush']['tooltip'] = 'Brush'
+        self.interactions['brush']['name'] = '3'
+        self.interactions['brush']['watch'] = 'brushing'
+
+        self.interactions['bar'] = {}
+        self.interactions['bar']['selector'] = index_sel
+        self.interactions['bar']['icon'] = 'mouse-pointer'
+        self.interactions['bar']['tooltip'] = 'Single Slider'
+        self.interactions['bar']['name'] = ' '
+        self.interactions['bar']['watch'] = 'selected'
+
+        self.interactions['panzoom'] = {}
+        self.interactions['panzoom']['selector'] = pz
+        self.interactions['panzoom']['icon'] = 'arrows'
+        self.interactions['panzoom']['tooltip'] = 'Pan Zoom'
+        self.interactions['panzoom']['name'] = ''
+        self.interactions['panzoom']['watch'] = 'scales'
 
         # self.deb.value = ''  # '[]'
 
         # deb = HTML(value='[]')
-
+        # Reset added jere ????
         # def test_callback(change):
         #     self.deb.value = "The selected range is {} on {} with {}".format(change.new, self.xlabel,
         #                                                                      br_intsel.selke)  # str(change.new)
@@ -254,6 +292,9 @@ class Cyplot:
 
         # return odict
 
+    def internal_cb(self):
+        print("????????????")
+
     def setScale(self, xScale=None, yScale=None):
         if xScale is not None:
             self.xScale = xScale
@@ -276,8 +317,9 @@ class Cyplot:
         if vbox is not None:
             vbox = self.vbox
 
-    def save(self,filename):
+    def save(self, filename):
         self.fig.save_png(filename)
-            
+
+
 def plot(data, index=None, ylabel=None):
     return Cyplot(data, index, ylabel)
