@@ -414,5 +414,5 @@ class Cyplot:
         self.fig.save_png(filename)
 
 
-def plot(data, index=None, ylabel=None):
-    return Cyplot(data, index, ylabel)
+def plot(data, index=None, ylabel=None,enable=None):
+    return Cyplot(data, index=index, ylabel=ylable,enable=enable)
