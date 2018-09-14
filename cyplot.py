@@ -22,6 +22,16 @@ class Cyplot:
 
         self.enabled = []
         
+        self.cbs = {}
+        
+        def cb0(change):
+            # Internal cb for changing interaction in fig
+            # print(change.new)
+            self.cur_inter = change.new
+        
+        self.cb0 = cb0
+        
+        
     def enable(self, interactions):
         self.old_enabled = self.enabled[:]
             
@@ -104,9 +114,13 @@ class Cyplot:
 
         # with dpdown.hold_trait_notifications():
 
-        with self.fig.hold_trait_notifications():
-            #dpdown.options=['4','5','6']
-            self.link = link((self.selection_interacts, 'value'), (self.fig, 'interaction'))
+        # with self.fig.hold_trait_notifications():
+        
+        # THERE SHOULD BE A CB HERE INSTEAD OF LINK
+        
+        self.fig.observe(self.cb0, names='interaction')
+        
+        self.link = link((self.selection_interacts, 'value'), (self.fig, 'interaction'))
 
         box_layout = Layout(display='flex',
                             flex_flow='column',
@@ -157,53 +171,13 @@ class Cyplot:
         if isinstance(interaction, str):
             
             if interaction in self.enabled:
-                func = self.interactions[interaction]['selector']  # ['selector']
-                func.observe(cb, names=[self.interactions[interaction]['watch']])
-
+                if cb is not None:
+                    self.cbs[interaction] = cb
+                else:
+                    if interaction in self.cbs:
+                        del self.cbs[interaction]
             else:
                 print("Can't turn on {}".format(interaction))
-
-        # elif isinstance(interaction,list):
-        #     num = len(interaction)
-        #     for i in range(num):
-        #         if cb is not None:
-        #             self.on(interaction[i], cb[i])
-        #         else:
-        #             self.on(interaction[i], None)
-        #
-        # elif isinstance(interaction, dict):
-        #     for k in interaction:
-        #         self.on(k, interaction[k])
-        #     # print('Each interaction has a cb')
-        #
-        # if interaction == 'brush':
-        #
-        #     def _cb(change):
-        #
-        #         if isinstance(change.new, np.ndarray):
-        #             # Always x range for now
-        #
-        #             xr = change.new
-        #             yr = [None, None]
-        #             box = [[xr[0], yr[0]], [xr[1], yr[1]]]
-        #             self.deb.value = "The brushed area is {} ".format(str(box))  # , self.xlabel, str(yr),self.ylabel)
-        #             # self.deb2.value = "The selected indices are {} ".format(
-        #             #     str(self.fig.marks[0].selected))  # , self.xlabel, str(yr),self.ylabel)
-        #             self.deb2.value = str(change)
-        #
-        #             cb(box)
-        #             # brushing, multiple
-        #             # if not change.new:
-        #         else:
-        #
-        #             box = self.interactions['brush']['selector'].selected # self.enabled['brush'].selected
-        #             self.deb.value = "The brushed area is {} ".format(str(box))  # , self.xlabel, str(yr),self.ylabel)
-        #             self.deb2.value = "The selected indices are {} ".format(
-        #                 str(self.fig.marks[0].selected))  # , self.xlabel, str(yr),self.ylabel)
-        #
-        #             cb(box)
-        #
-
 
     def set_data(self, data, index, ylabel, add=False):
 
@@ -298,12 +272,52 @@ class Cyplot:
         br_sel = BrushSelector(x_scale=xScale, y_scale=yScale, marks=mark, color='red')
         pz = PanZoom(scales={'x': [xScale], 'y': [yScale]})
 
-        # def cb1(change):
-        #
-        # def cb2(change):
-        #
-        # def cb3(change):
+        def cb1(change):
+            if len(change.new)>1:
+                xr = change.new
+                yr = [None, None]
+                box = [[xr[0], yr[0]], [xr[1], yr[1]]]
 
+                y = getattr(self, "cbs", None)
+
+                if y is not None:
+                    if 'brush' in self.cbs:
+                        cb = self.cbs['brush']
+                        cb(box)
+            else:
+                y = getattr(self, "cbs", None)
+                if y is not None:
+                    if 'bar' in self.cbs:
+                        cb = self.cbs['bar']
+                        cb(box)
+            
+        def cb2(change):
+            box = self.interactions['brush']['selector'].selected
+            y = getattr(self, "cbs", None)
+            
+            if y is not None:
+                if 'brush' in self.cbs:
+                    cb = self.cbs['brush']
+                    cb(box)
+        
+        def cb3(change):
+            newscales = change.new
+            
+            y = getattr(self, "cbs", None)
+
+            if y is not None:
+                if 'panzoom' in self.cbs:
+                    cb = self.cbs['panzoom']
+                    cb(newscales['x'], newscales['y'])
+
+        multi_sel.observe(cb1, names=['selected'])
+        br_intsel.observe(cb1, names=['selected'])#'selected'])
+        index_sel.observe(cb1, names=['selected'])
+        int_sel.observe(cb1, names=['selected'])
+
+        br_sel.observe(cb2, names=['brushing'])#'brushing'])
+        pz.observe(cb3, names=['scales'])#'brushing'])
+        
         self.interactions['brushes'] = {}
         self.interactions['brushes']['selector'] = multi_sel
         self.interactions['brushes']['icon'] = 'th-large'
@@ -346,36 +360,6 @@ class Cyplot:
         self.interactions['panzoom']['order'] = 6# ''
         self.interactions['panzoom']['watch'] = 'scales'
 
-        # self.deb.value = ''  # '[]'
-
-        # deb = HTML(value='[]')
-        # Reset added jere ????
-        # def test_callback(change):
-        #     self.deb.value = "The selected range is {} on {} with {}".format(change.new, self.xlabel,
-        #                                                                      br_intsel.selke)  # str(change.new)
-        #
-        # def brush_callback(change):
-        #     # deb.value = str(br_sel.selected)
-        #     xr = [br_sel.selected[0][0], br_sel.selected[1][0]]
-        #     yr = [br_sel.selected[0][1], br_sel.selected[1][1]]
-        #     self.deb.value = "The brushed area is {} on {},  {} on {}".format(str(xr), self.xlabel, str(yr),
-        #                                                                       self.ylabel)
-
-        # if cb is not None:
-        #     def mycb(change):
-        #         self.deb.value = str(cb(change.new))  # cb(change.new)
-        #
-        #     test_callback = mycb
-        #     brush_callback = mycb
-
-        #         multi_sel.observe(test_callback, names=['selected'])
-        #         br_intsel.observe(test_callback, names=['brushing'])#'selected'])
-        #         index_sel.observe(test_callback, names=['selected'])
-        #         int_sel.observe(test_callback, names=['selected'])
-
-        #         br_sel.observe(brush_callback, names=['selected'])#'brushing'])
-        #         # selctedX, selectedY
-
         # Initialize Selector
         # Initialize CB
         # Observe
@@ -384,21 +368,6 @@ class Cyplot:
         # General one, brushing
         # Other selected, color, line_width ..., selected_x, selected_y
 
-        # multi_sel.observe(test_callback, names=['brushing'])
-        # br_intsel.observe(test_callback, names=['brushing'])
-        # index_sel.observe(test_callback, names=['brushing'])
-        # int_sel.observe(test_callback, names=['brushing'])
-        #
-        # br_sel.observe(brush_callback, names=['brushing'])  # 'brushing'])
-        # selctedX, selectedY
-
-        # odict = OrderedDict([('FastInterval', int_sel), ('Index', index_sel),
-        #                      ('BrushX', br_intsel), ('MultiBrush', multi_sel), ('Brush', br_sel),
-        #                      ('PanZoom', pz), ('None', None)])
-        #
-        # self.interaction_dict = odict
-
-        # return odict
 
     def internal_cb(self):
         print("????????????")
