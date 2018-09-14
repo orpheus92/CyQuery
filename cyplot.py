@@ -14,7 +14,7 @@ from bqplot.toolbar import Toolbar
 
 
 class Cyplot:
-    def __init__(self, data, index=None, ylabel=None):
+    def __init__(self, data, index=None, ylabel=None, enable=None):
 
         self.set_data(data, index, ylabel)
 
@@ -30,6 +30,9 @@ class Cyplot:
             self.cur_inter = change.new
 
         self.cb0 = cb0
+        if enable is not None:
+            
+            self.enable(enable)
 
     def enable(self, interactions):
         self.old_enabled = self.enabled[:]
@@ -122,7 +125,7 @@ class Cyplot:
         # border='solid',
         # width='50%')
 
-        self.vbox = VBox([self.selection_interacts, self.fig, self.deb, self.deb2], layout=box_layout)
+        self.vbox = VBox([self.selection_interacts, self.fig], layout=box_layout)
 
     def get_input(self, enabled):
         ops = {}
@@ -247,7 +250,7 @@ class Cyplot:
         self.yd = df[self.cols].T
 
         line = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
-                     display_legend=True, line_style='solid', marker='circle', selected_style={'opacity': '1'},
+                     display_legend=True, line_style='solid', selected_style={'opacity': '1'},
                      unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options)
 
         x_axis = Axis(scale=self.xScale, label=self.xlabel, grid_lines='none')
