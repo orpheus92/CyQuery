@@ -6,7 +6,7 @@ from bqplot.interacts import (
     FastIntervalSelector, IndexSelector, BrushIntervalSelector,
     BrushSelector, MultiSelector, LassoSelector, PanZoom, HandDraw
 )
-from traitlets import link
+from traitlets import link# , unlink
 from collections import OrderedDict
 from IPython.display import display
 from ipywidgets import ToggleButtons, VBox, HTML, Layout
@@ -21,58 +21,92 @@ class Cyplot:
         self.interaction_map()
 
         self.enabled = []
-        self.inters = OrderedDict()
-        self.tooltips = []
-        self.icons = []
+        
     def enable(self, interactions):
+        self.old_enabled = self.enabled[:]
+            
         if isinstance(interactions, str):
             interactions = [interactions]
-
+        change = False
         for inter in interactions:
             if inter in self.interactions and inter not in self.enabled:
-                self.enabled.append(inter)# [self.interactions[inter]['name']] = self.interactions[inter]['selector']
+                change = True
+                
+                n = len(self.enabled)
+                i = 0
+                while(i<n):
+                    #for e in self.enabled:
+                    e = self.enabled[i]
+                    if self.interactions[e]['order']>self.interactions[inter]['order']:
+                        self.enabled.insert(i,inter)
+                        break
+                    i = i+1
+                if inter not in self.enabled: #i==0 or i ==n:
+                    self.enabled.append(inter)
+                    
+        if change:
+            self.updatebuttons(self.enabled)
+            
+    def updatebuttons(self, enabled):
 
-                self.inters[self.interactions[inter]['name']] = self.interactions[inter]['selector']
-                self.tooltips.append(self.interactions[inter]['tooltip'])
-                self.icons.append(self.interactions[inter]['icon'])
-
-        # self.buttons
-        # self.selection_interacts = ToggleButtons(options=self.active)
-
-        # self.odict = OrderedDict()
-        # for i in self.active:
-        #     self.odict[i] = self.active[i]['selector']
-
-        #         widgets.ToggleButton(
-        #             value=False,
-        #             description='Click me',
-        #             disabled=False,
-        #             button_style='', # 'success', 'info', 'warning', 'danger' or ''
-        #             tooltip='Description',
-        #             icon='check')
-
-        # widgets.ToggleButtons(
-        #     options=['Slow', 'Regular', 'Fast'],
-        #     description='Speed:',
-        #     disabled=False,
-        #     button_style='', # 'success', 'info', 'warning', 'danger' or ''
-        #     tooltips=self.tooltips,# ['Description of slow', 'Description of regular', 'Description of fast'],
-        #     icons=self.icons# ['check'] * 3
-        # )
-
-        margin = dict(top=0, bottom=30, left=50, right=50)
-
-        self.selection_interacts = ToggleButtons(
-            options=self.inters,  # OrderedDict([
-            descrition='interaction',
-            tooltips=self.tooltips,  # ['Description of slow', 'Description of regular', 'Description of fast'],
-            icons=self.icons,  # ['check'] * 3
-            style={'button_width': '40px'},#,'description_width':'0px'},
-            layout = Layout(justify_content = 'flex-end',  margin='0px 210px 0px 0px')#margin)#justify-content='fkex-end'
-
-        )
+        ops = self.get_input(enabled)
+        
+        # Keep try of current selected part
+        
+        oldind = -1 
+        
+        y = getattr(self, "selection_interacts", None)
+        
+        if y is not None:            
+            oldind = self.selection_interacts.index
+            if self.old_enabled[oldind] in self.enabled:
+                ind = self.enabled.index(self.old_enabled[oldind])
+            else:
+                # Current Inter is removed 
+                # print("Before manually change IDX\n")
+                # print(self.fig.interaction)
+                # self.fig.interaction = None
+                # with self.fig.hold_trait_notifications():
+                #     # hold_trait_notifications()
+                #     self.selection_interacts.index = self.old_enabled.index(self.enabled[0])
+                # print("After index change due removal")
+                # print(self.old_enabled.index(self.enabled[0]))
+                # unlink((self.selection_interacts, 'value'), (self.fig, 'interaction'))
+                #self.link[0].observe(self._update_target, names=self.source[1])
+                #self.link[0].observe(self._update_source, names=self.target[1])
+                print("REMOVE CURRENT INTER")
+                #self.link.source[0].unobserve(self.link._update_target, names=self.link.source[1])
+                #self.link.target[0].unobserve(self.link._update_source, names=self.link.target[1])
+                self.link.unlink()
+                oldind = -1
+                # self.fig.interaction = None
+                # print("After Remove", type(self.fig.interaction), self.fig.interaction)
+                ind = 0
+        else:
+            oldind = -1
+            
+        
+        self.selection_interacts = ToggleButtons(**ops)
+        # print(self.selection_interacts.index)     
         # self.selection_interacts.value gives the current interaction (the one that is clicked)
-        link((self.selection_interacts, 'value'), (self.fig, 'interaction'))
+        
+        # print("Defaut selection interacts :")
+        # print(self.selection_interacts.value)
+
+        if oldind != -1:
+            self.selection_interacts.index = ind
+            # self.fig.interaction = self.selection_interacts.value
+        
+        # print("Before link happend\n", self.fig.interaction)
+        # print("\n ========== \n", self.selection_interacts.value)
+        
+        self.fig.interaction = None
+
+        # with dpdown.hold_trait_notifications():
+
+        with self.fig.hold_trait_notifications():
+            #dpdown.options=['4','5','6']
+            self.link = link((self.selection_interacts, 'value'), (self.fig, 'interaction'))
 
         box_layout = Layout(display='flex',
                             flex_flow='column',
@@ -81,15 +115,47 @@ class Cyplot:
                             #width='50%')
 
         self.vbox = VBox([self.selection_interacts, self.fig, self.deb, self.deb2], layout=box_layout)
-
+                
+                
+    def get_input(self, enabled):
+        ops = {}
+        ops['options'] = OrderedDict()
+        ops['tooltips'] = []
+        ops['icons'] = []
+        ops['style'] = {'button_width': '40px'} # ,#,'description_width':'0px'},
+        ops['description'] = 'interaction'# ,
+        ops['layout'] = Layout(justify_content = 'flex-start',  margin='0px 0px 0px 0px')#margin)#justify-content='fkex-end'
+        
+        for i in enabled:
+            
+            ops['options'].update({self.interactions[i]['order']*' ':self.interactions[i]['selector']})
+            ops['tooltips'].append(self.interactions[i]['tooltip'])
+            ops['icons'].append(self.interactions[i]['icon'])
+            
+        return ops
+            
     def disable(self, interactions):
-        # Will be implemented later
-        print(interactions)
+
+        self.old_enabled = self.enabled[:]
+            
+        if isinstance(interactions, str):
+            interactions = [interactions]
+            
+        change = False
+        
+        for inter in interactions:
+            if inter in self.enabled:
+                change = True
+                self.enabled.remove(inter)
+            else: 
+                print('Could not disable ', inter)
+                    
+        if change:
+            self.updatebuttons(self.enabled)
 
     def on(self, interaction, cb):
-
         if isinstance(interaction, str):
-            # self.on([iteraction],[cb])
+            
             if interaction in self.enabled:
                 func = self.interactions[interaction]['selector']  # ['selector']
                 func.observe(cb, names=[self.interactions[interaction]['watch']])
@@ -207,9 +273,7 @@ class Cyplot:
 
     def _ipython_display_(self):
 
-        # tb = Toolbar(figure=self.fig)
-
-        display(self.vbox)  # , tb)
+        display(self.vbox) 
 
     def interaction_map(self):  # , xScale, yScale, fig, mark, deb):
 
@@ -237,42 +301,42 @@ class Cyplot:
         self.interactions['brushes']['selector'] = multi_sel
         self.interactions['brushes']['icon'] = 'th-large'
         self.interactions['brushes']['tooltip'] = 'Multiple Brushes'
-        self.interactions['brushes']['name'] = '   '
+        self.interactions['brushes']['order'] = 0 # '   '
         self.interactions['brushes']['watch'] = 'selected'
 
         self.interactions['brush_x'] = {}
         self.interactions['brush_x']['selector'] = br_intsel
         self.interactions['brush_x']['icon'] = 'arrows-h'
         self.interactions['brush_x']['tooltip'] = 'Horizontal Brush'
-        self.interactions['brush_x']['name'] = '     '
+        self.interactions['brush_x']['order'] = 1# '     '
         self.interactions['brush_x']['watch'] = 'selected'
 
         self.interactions['brush_fast'] = {}
         self.interactions['brush_fast']['selector'] = int_sel
         self.interactions['brush_fast']['icon'] = 'exchange'
         self.interactions['brush_fast']['tooltip'] = 'Fast Brush'
-        self.interactions['brush_fast']['name'] = '      '
+        self.interactions['brush_fast']['order'] = 3 # '      '
         self.interactions['brush_fast']['watch'] = 'selected'
 
         self.interactions['brush'] = {}
         self.interactions['brush']['selector'] = br_sel
         self.interactions['brush']['icon'] = 'retweet'
         self.interactions['brush']['tooltip'] = 'Brush'
-        self.interactions['brush']['name'] = '       '
+        self.interactions['brush']['order'] = 4 # '       '
         self.interactions['brush']['watch'] = 'brushing'
 
         self.interactions['bar'] = {}
         self.interactions['bar']['selector'] = index_sel
         self.interactions['bar']['icon'] = 'mouse-pointer'
         self.interactions['bar']['tooltip'] = 'Single Slider'
-        self.interactions['bar']['name'] = ' '
+        self.interactions['bar']['order'] = 5 # ' '
         self.interactions['bar']['watch'] = 'selected'
 
         self.interactions['panzoom'] = {}
         self.interactions['panzoom']['selector'] = pz
         self.interactions['panzoom']['icon'] = 'arrows'
         self.interactions['panzoom']['tooltip'] = 'Pan Zoom'
-        self.interactions['panzoom']['name'] = ''
+        self.interactions['panzoom']['order'] = 6# ''
         self.interactions['panzoom']['watch'] = 'scales'
 
         # self.deb.value = ''  # '[]'
