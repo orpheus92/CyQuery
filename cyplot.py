@@ -123,7 +123,7 @@ class Cyplot:
         ops['tooltips'] = []
         ops['icons'] = []
         ops['style'] = {'button_width': '40px'} # ,#,'description_width':'0px'},
-        ops['description'] = 'interaction'# ,
+        ops['description'] = 'Interaction: '# ,
         ops['layout'] = Layout(justify_content = 'flex-start',  margin='0px 0px 0px 0px')#margin)#justify-content='fkex-end'
         
         for i in enabled:
@@ -228,12 +228,19 @@ class Cyplot:
 
         self.legends = [' '.join(legend) for legend in self.cols]
 
+        y = getattr(self.data.columns, "levels", None)
+        # print(y)
+        
         if ylabel is not None:
             self.ylabel = ylabel
 
+        elif y is None:
+            # One level 
+            # self.legends
+            self.ylabel = ''
         elif len(self.data.columns.levels[0]) == 1:
             self.legends = [' '.join(legend[1::]) for legend in self.cols]
-
+            self.ylabel = self.data.columns.levels[0][0]
         else:
             self.ylabel = ''
 
@@ -254,9 +261,6 @@ class Cyplot:
         self.xd = df[self.xlabel]
         self.yd = df[self.cols].T
 
-        # line_style
-        # {‘solid’, ‘dashed’, ‘dotted’, ‘dash_dotted’} – Line style.
-
         line = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
                      display_legend=True, line_style='solid', marker='circle', selected_style={'opacity': '1'},
                      unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options)
@@ -272,8 +276,11 @@ class Cyplot:
         self.deb2 = HTML()
 
     def _ipython_display_(self):
-
-        display(self.vbox) 
+        
+        if len(self.enabled)==0:
+            display(self.fig)
+        else:    
+            display(self.vbox)
 
     def interaction_map(self):  # , xScale, yScale, fig, mark, deb):
 
