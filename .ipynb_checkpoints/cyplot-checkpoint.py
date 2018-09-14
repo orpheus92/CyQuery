@@ -28,7 +28,7 @@ class Cyplot:
             # Internal cb for changing interaction in fig
             # print(change.new)
             self.cur_inter = change.new
-        
+
         self.cb0 = cb0
         
         
@@ -203,7 +203,6 @@ class Cyplot:
         self.legends = [' '.join(legend) for legend in self.cols]
 
         y = getattr(self.data.columns, "levels", None)
-        # print(y)
         
         if ylabel is not None:
             self.ylabel = ylabel
@@ -220,12 +219,34 @@ class Cyplot:
 
         self.xScale = LinearScale()
         self.yScale = LinearScale()
-
         self.create_fig(self.data)
 
-    def add_data(self, data):
-        self.set_data(data, add=True)
+    def add_data(self, data, index=None, ylabel=None):
+        # compare new data with existing data
+        if isinstance(data, pd.Series) and isinstance(self.data, pd.Series):
+            # concatenate
+            if data.name == self.data.name:
+                data = data.append(self.data, ignore_index=True)
+                self.set_data(data, index, ylabel)
+                # combine to dataframe
+            elif (data.index == self.data.index).all():
+                self.set_data(pd.concat([data,self.data]),index, ylabel)
+            else:
+                print("Could not combine two data series w/o same index and same column")
+                
+        elif isinstance(data, pd.DataFrame) and isinstance(self.data, pd.DataFrame):   
+            if (data.columns == self.data.columns).all():
+                data = data.append(self.data, ignore_index=True)
+                self.set_data(data, index, ylabel)
+        
+            elif((data.index == self.data.index).all()) and (data.columns != self.data.columns).any():
+                self.set_data(pd.concat([data, self.data], axis=1, join_axes=[data.index]),index, ylabel)
+            else: 
+                print("Could not combine two dataframes w/o same index and same column")
 
+        else:
+            print("Could not combine two data of different types")
+            
     def create_fig(self, ts):
 
         ts.sort_index(inplace=True)
@@ -235,6 +256,7 @@ class Cyplot:
         self.xd = df[self.xlabel]
         self.yd = df[self.cols].T
 
+        
         line = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
                      display_legend=True, line_style='solid', marker='circle', selected_style={'opacity': '1'},
                      unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options)
