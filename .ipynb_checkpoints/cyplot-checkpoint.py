@@ -67,8 +67,8 @@ class Cyplot:
             descrition='interaction',
             tooltips=self.tooltips,  # ['Description of slow', 'Description of regular', 'Description of fast'],
             icons=self.icons,  # ['check'] * 3
-            style={'button_width': '50px','font_weight':'1', 'font_size':'200px'},#,'description_width':'0px'},
-            layout = Layout(justify_content = 'flex-end',  margin='0px 135px 0px 0px')#margin)#justify-content='fkex-end'
+            style={'button_width': '40px'},#,'description_width':'0px'},
+            layout = Layout(justify_content = 'flex-end',  margin='0px 210px 0px 0px')#margin)#justify-content='fkex-end'
 
         )
         # self.selection_interacts.value gives the current interaction (the one that is clicked)
@@ -76,9 +76,9 @@ class Cyplot:
 
         box_layout = Layout(display='flex',
                             flex_flow='column',
-                            align_items='stretch',
+                            align_items='stretch')#,
                             # border='solid',
-                            width='50%')
+                            #width='50%')
 
         self.vbox = VBox([self.selection_interacts, self.fig, self.deb, self.deb2], layout=box_layout)
 
