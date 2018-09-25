@@ -1,2 +1,2 @@
 # CyQuery
-Custom Library for query Cyclus Data
+Custom Library for plot and resample 
