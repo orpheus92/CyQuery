@@ -14,9 +14,11 @@ from bqplot.toolbar import Toolbar
 
 
 class Cyplot:
-    def __init__(self, data, index=None, ylabel=None, enable=None, debug=False):
+    def __init__(self, data, index=None, ylabel=None, enable=None, debug=False, ptype=None):
         self.debug = debug
 
+        self.ptype = ptype
+        
         self.set_data(data, index, ylabel)
 
         self.interaction_map()
@@ -258,10 +260,14 @@ class Cyplot:
         self.xd = df[self.xlabel]
         self.yd = df[self.cols].T
 
-        line = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
-                     display_legend=True, line_style='solid', selected_style={'opacity': '1'},
-                     unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options)
-
+        if not self.ptype:
+            pplt = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
+                         display_legend=True, line_style='solid', stroke_width = 0, marker = 'circle')
+        
+        else: 
+            pplt = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
+                         display_legend=True, line_style='solid', selected_style={'opacity': '1'}, unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options) 
+            
         x_axis = Axis(scale=self.xScale, label=self.xlabel, grid_lines='none')
         y_axis = Axis(scale=self.yScale, label=self.ylabel, orientation='vertical', grid_lines='none')
 
@@ -270,7 +276,7 @@ class Cyplot:
         else:
             margin = dict(top=0, bottom=50, left=50, right=50)
 
-        self.fig = Figure(marks=[line], axes=[x_axis, y_axis], legend_location='top-right',
+        self.fig = Figure(marks=[pplt], axes=[x_axis, y_axis], legend_location='top-right',
                           fig_margin=margin)  # {'top':50,'left':60})
         
         if self.debug:
@@ -340,6 +346,8 @@ class Cyplot:
 
             if y is not None:
                 if 'brush' in self.cbs:
+                    if self.debug:
+                        self.deb.value = str(box)
                     cb = self.cbs['brush']
                     cb(box)
 
@@ -435,5 +443,5 @@ class Cyplot:
         self.fig.save_png(filename)
 
 
-def plot(data, index=None, ylabel=None,enable=None,debug=False):
-    return Cyplot(data, index=index, ylabel=ylabel,enable=enable,debug=debug)
+def plot(data, index=None, ylabel=None,enable=None,debug=False,ptype=None):
+    return Cyplot(data, index=index, ylabel=ylabel,enable=enable,debug=debug,ptype=ptype)
