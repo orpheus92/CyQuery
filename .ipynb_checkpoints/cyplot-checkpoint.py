@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from bqplot import DateScale, LinearScale, OrdinalScale, Axis, Lines, Scatter, Bars, Hist, Figure
+from bqplot import DateScale, LinearScale, OrdinalScale, Axis, Lines, Scatter, Bars, Hist, Figure, ColorScale, ColorAxis
 from bqplot.interacts import (
     FastIntervalSelector, IndexSelector, BrushIntervalSelector,
     BrushSelector, MultiSelector, LassoSelector, PanZoom, HandDraw
@@ -14,10 +14,12 @@ from bqplot.toolbar import Toolbar
 
 
 class Cyplot:
-    def __init__(self, data, index=None, ylabel=None, enable=None, debug=False, ptype=None):
+    def __init__(self, data, index=None, ylabel=None, enable=None, debug=False, ptype=None, dims=None):
         self.debug = debug
 
         self.ptype = ptype
+        
+        self.dims = dims
         
         self.set_data(data, index, ylabel)
 
@@ -183,14 +185,58 @@ class Cyplot:
 
     def set_data(self, data, index, ylabel, add=False):
 
+        
+        self.xScale = LinearScale()
+        #self.xScale.min, self.xScale.max = self.data.index.min(), self.data.index.max() # min=self.data.index.min(),max=self.data.index.max()
+        self.xScale.allow_padding = False
+        
+        self.yScale = LinearScale()
+        self.yScale.allow_padding = False
+        
         # add decide whether draw figure on top
+        if self.ptype == 'PCA':
+            from sklearn.decomposition import IncrementalPCA
+            ipca = IncrementalPCA(n_components=2, batch_size=3)
+            # data.values
+            if index is not None:
+                Y = data[index].values
+                xlist = list(data)#.columns
+                xlist.remove(index)
+                X = data[xlist].values
+                
+            else:
+                X = data.values[:,:-1]
+                Y = data.values[:,-1]
+                
+            ipca.fit(X)
+            pca_data = ipca.transform(X)
+            self.colors = Y
+            
+            cols = ['component1','component2']
 
+
+            df = pd.DataFrame(pca_data, columns=cols)
+            self.data = df#.set_index('component1')
+            self.cols = ['component2']
+            self.xlabel = 'component1'
+            self.ylabel = 'component2'
+            
+            self.create_fig(self.data)
+            
+            return
+        
         if isinstance(data, pd.Series):
             self.data = data
 
         elif isinstance(data, pd.DataFrame):
             # Pandas DataFrame
-            if index is not None:
+            if self.dims is not None and len(self.dims)>1:
+                
+                self.data = data[self.dims[0:2]]#.set_index(self.dims[0])
+                self.colors = data.values[:,-1] if len(self.dims)==2 else data[self.dims[2]].values
+                self.data.index.name = self.dims[0]
+
+            elif index is not None:
                 self.data = data.set_index(index)
             else:
                 self.data = data
@@ -198,30 +244,30 @@ class Cyplot:
             print("The input data type is not supported")
 
         self.xlabel = self.data.index.name if self.data.index.name is not None else "index"
-        self.cols = list(self.data)
-        self.legends = [' '.join(legend) for legend in self.cols]
+        
+        self.cols = list(self.data) if self.dims is None else self.dims[1]
+        
+        
+        # self.legends = [' '.join(legend) for legend in self.cols] if self.dims is None else self.dims[1:]
 
         y = getattr(self.data.columns, "levels", None)
-
+        
+        # Depends on dims/ylabel/level
         if ylabel is not None:
             self.ylabel = ylabel
 
         elif y is None:
             # One level 
             # self.legends
-            self.ylabel = ''
+            self.ylabel = '' 
+            if self.dims is not None and len(self.dims)>1:
+                self.ylabel = self.dims[1]
+                
         elif len(self.data.columns.levels[0]) == 1:
             self.legends = [' '.join(legend[1::]) for legend in self.cols]
             self.ylabel = self.data.columns.levels[0][0]
         else:
             self.ylabel = ''
-
-        self.xScale = LinearScale()
-        #self.xScale.min, self.xScale.max = self.data.index.min(), self.data.index.max() # min=self.data.index.min(),max=self.data.index.max()
-        self.xScale.allow_padding = False
-        
-        self.yScale = LinearScale()
-        self.yScale.allow_padding = False
         
         self.create_fig(self.data)
 
@@ -252,15 +298,24 @@ class Cyplot:
             print("Could not combine two data of different types")
 
     def create_fig(self, ts):
-
-        ts.sort_index(inplace=True)
-
-        df = ts.reset_index()  # time = ts.Time
-
-        self.xd = df[self.xlabel]
+        
+        if self.ptype != 'PCA' and self.dims == None:
+            ts.sort_index(inplace=True)
+            df = ts.reset_index()  # time = ts.Time
+        
+        else:
+            df = ts
+        self.xd = df[self.xlabel] #  if self.dims == None else df[self.dims[0]]
         self.yd = df[self.cols].T
 
-        if not self.ptype:
+        if self.ptype =='PCA' or self.dims is not None:
+            
+            pplt = Scatter(x=self.xd.values.ravel(), y=self.yd.values.ravel(), scales={'x': self.xScale, 'y': self.yScale, 'color': ColorScale(scheme='YlOrRd')}, color = self.colors, default_size=32)#labels=self.legends,
+                         #display_legend=True, line_style='solid', stroke_width = 0, marker = 'circle')
+            # elif self.dims is not None:
+            
+        
+        elif not self.ptype:
             pplt = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
                          display_legend=True, line_style='solid', stroke_width = 0, marker = 'circle')
         
@@ -270,13 +325,17 @@ class Cyplot:
             
         x_axis = Axis(scale=self.xScale, label=self.xlabel, grid_lines='none')
         y_axis = Axis(scale=self.yScale, label=self.ylabel, orientation='vertical', grid_lines='none')
+        c_axis = ColorAxis(scale=ColorScale(scheme='YlOrRd'), orientation='vertical', side='right')
 
+        print(type(pplt))
+        axis = [x_axis, y_axis, c_axis] if isinstance(pplt, Scatter) else [x_axis, y_axis]
+        
         if self.debug:
             margin = dict(top=0, bottom=40, left=50, right=50)
         else:
             margin = dict(top=0, bottom=50, left=50, right=50)
 
-        self.fig = Figure(marks=[pplt], axes=[x_axis, y_axis], legend_location='top-right',
+        self.fig = Figure(marks=[pplt], axes=axis, legend_location='top-right',
                           fig_margin=margin)  # {'top':50,'left':60})
         
         if self.debug:
@@ -443,5 +502,5 @@ class Cyplot:
         self.fig.save_png(filename)
 
 
-def plot(data, index=None, ylabel=None,enable=None,debug=False,ptype=None):
-    return Cyplot(data, index=index, ylabel=ylabel,enable=enable,debug=debug,ptype=ptype)
+def plot(data, index=None, ylabel=None,enable=None,debug=False,ptype=None,dims=None):
+    return Cyplot(data, index=index, ylabel=ylabel,enable=enable,debug=debug,ptype=ptype,dims = dims)
