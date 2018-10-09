@@ -1,6 +1,24 @@
 import queue
 
 def check_fit(*args, **kwargs):
+    """
+    arg: threshold
+
+    kwargs:
+        "check_attr": attr to check, default, "parent_fitness"
+        
+        "greater": if true, partitions with attr greater than threshold will be returned 
+
+        "node": node where the check will be started 
+
+        "partitions": list of partitions that will be checked 
+        "p_order": if true, check will follow the list order of the partition
+                    otherwise, top to bottom
+
+        "tree": tree that will be checked 
+
+    
+    """
     # No matter what, threshold is required to decide whether a partition needs to be resampled 
     threshold = args[0]
 
@@ -13,8 +31,8 @@ def check_fit(*args, **kwargs):
             return a<b
 
     # Get attribute to check 
-    if "check_function" in kwargs:
-        check = kwargs["check_function"]
+    if "check_attr" in kwargs:
+        check = kwargs["check_attr"]
     else:
         # default partent fitness
         check = "parent_fitness"
@@ -27,9 +45,9 @@ def check_fit(*args, **kwargs):
         # return p2sample
     
     elif "tree" in kwargs:
-        node = getattr(kwargs["tree"],"root"):
+        node = getattr(kwargs["tree"],"root")
         if node:
-            return find_partitions(node. threshold, check, compare)
+            return find_partitions(node, threshold, check, compare)
 
         print("Can't find the root of the tree!!!")
         return 
@@ -48,7 +66,7 @@ def check_fit(*args, **kwargs):
     else:
         print("Invalid Inputs! ")
         return
-     
+
 def find_partitions(node, threshold, check, compare):
     # Given a node, find leaf nodes that should be resampled
     outp = []
