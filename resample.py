@@ -33,19 +33,22 @@ class Resample:
         if x is not None and y is not None:
             if self.p == "inverse_kernel_ridge":
                 self.interp(x,y) # [] # This would be combined with regulus later
-            else: 
+            elif self.p == "bounding_box": 
                 self.xrange = None
                 self.compute_range(x,y)
-            
+            else:
+                # print("method for generating new samples not recognized")
+                raise ValueError('method for generating new samples not recognized')
+
     def cb(self, val, dim=None):
         # dim should be a list that specify the dimension for brushed area
+
         if self.p == "inverse_kernel_ridge":
             self.yrange = [val[0][0],val[1][0]]            
             
-        else:
+        elif self.p == "bounding_box": 
             if self.xrange is None:
                 self.xrange = self.xrange_[:]
-
             if dim:
                 d1,d2 = dim[0],dim[1]
 
@@ -61,7 +64,8 @@ class Resample:
             y = y.reshape(-1,1)
             return self.preds(y)
 
-        else:
+        elif self.p == "bounding_box": 
+
             return np.array(self.x)
 
     def add_samples(self, num=None):
@@ -75,7 +79,8 @@ class Resample:
             # Generate y
             for i in range(num):    
                 self.vals.append(self.func(self.yrange))
-        else:
+
+        elif self.p == "bounding_box": 
             # Fill None with Global range
             for c in range(len(self.xrange)):
                 if self.xrange[c][0] is None:

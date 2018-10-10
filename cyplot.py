@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from bqplot import DateScale, LinearScale, OrdinalScale, Axis, Lines, Scatter, Bars, Hist, Figure, ColorScale, ColorAxis
+from bqplot import DateScale, LinearScale, OrdinalScale, Axis, Lines, Scatter, Bars, Hist, Figure, ColorScale, ColorAxis, FlexLine
 from bqplot.interacts import (
     FastIntervalSelector, IndexSelector, BrushIntervalSelector,
     BrushSelector, MultiSelector, LassoSelector, PanZoom, HandDraw
@@ -14,7 +14,13 @@ from bqplot.toolbar import Toolbar
 
 
 class Cyplot:
-    def __init__(self, data, index=None, ylabel=None, enable=None, debug=False, ptype=None, dims=None):
+    def __init__(self, data, index=None, ylabel=None, enable=None, debug=False, ptype=None, dims=None, \
+                interp="linear", linestyle="solid", scheme="YlOrRd"):
+
+        self.scheme = scheme
+        self.interp = interp
+        self.linestyle = linestyle
+
         self.debug = debug
 
         self.ptype = ptype
@@ -31,7 +37,6 @@ class Cyplot:
 
         def cb0(change):
             # Internal cb for changing interaction in fig
-            # print(change.new)
             self.cur_inter = change.new
 
         self.cb0 = cb0
@@ -184,6 +189,8 @@ class Cyplot:
                 print("Can't turn on {}".format(interaction))
 
     def set_data(self, data, index, ylabel, add=False):
+        
+        self.alldims = list(data)
 
         
         self.xScale = LinearScale()
@@ -246,20 +253,20 @@ class Cyplot:
         self.xlabel = self.data.index.name if self.data.index.name is not None else "index"
         
         self.cols = list(self.data) if self.dims is None else self.dims[1]
-        
-        
-        # self.legends = [' '.join(legend) for legend in self.cols] if self.dims is None else self.dims[1:]
 
         y = getattr(self.data.columns, "levels", None)
         
-        # Depends on dims/ylabel/level
         if ylabel is not None:
             self.ylabel = ylabel
 
         elif y is None:
             # One level 
-            # self.legends
             self.ylabel = '' 
+            self.legends = [legend for legend in self.cols]
+            
+            if self.xlabel in self.legends:
+                self.legends.remove(self.xlabel)
+
             if self.dims is not None and len(self.dims)>1:
                 self.ylabel = self.dims[1]
                 
@@ -305,29 +312,29 @@ class Cyplot:
         
         else:
             df = ts
-        self.xd = df[self.xlabel] #  if self.dims == None else df[self.dims[0]]
+        self.xd = df[self.xlabel] 
         self.yd = df[self.cols].T
 
         if self.ptype =='PCA' or self.dims is not None:
+            pplt = Scatter(x=self.xd.values.ravel(), y=self.yd.values.ravel(), scales={'x': self.xScale, \
+            'y': self.yScale, 'color': ColorScale(scheme=self.scheme)}, selected_style={'opacity': '1'}, \
+            unselected_style={'opacity': '0.2'},color = self.colors, default_size=32)
             
-            pplt = Scatter(x=self.xd.values.ravel(), y=self.yd.values.ravel(), scales={'x': self.xScale, 'y': self.yScale, 'color': ColorScale(scheme='YlOrRd')}, color = self.colors, default_size=32)#labels=self.legends,
-                         #display_legend=True, line_style='solid', stroke_width = 0, marker = 'circle')
-            # elif self.dims is not None:
-            
-        
         elif not self.ptype:
             pplt = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
-                         display_legend=True, line_style='solid', stroke_width = 0, marker = 'circle')
-        
+                         display_legend=True, line_style=self.linestyle, stroke_width = 1, marker = 'circle', \
+                         interpolation = self.interp)
+            # {‘linear’, ‘basis’, ‘cardinal’, ‘monotone’}
         else: 
-            pplt = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends,
-                         display_legend=True, line_style='solid', selected_style={'opacity': '1'}, unselected_style={'opacity': '0.2'})  # enable_hover=True)  # axes_options=axes_options) 
+            pplt = Lines(x=self.xd, y=self.yd, scales={'x': self.xScale, 'y': self.yScale}, labels=self.legends, \
+                         display_legend=True, line_style=self.linestyle, selected_style={'opacity': '1'}, \
+                         unselected_style={'opacity': '0.2'},interpolation=self.interp)  
+                         # enable_hover=True)  # axes_options=axes_options) 
             
         x_axis = Axis(scale=self.xScale, label=self.xlabel, grid_lines='none')
         y_axis = Axis(scale=self.yScale, label=self.ylabel, orientation='vertical', grid_lines='none')
-        c_axis = ColorAxis(scale=ColorScale(scheme='YlOrRd'), orientation='vertical', side='right')
+        c_axis = ColorAxis(scale=ColorScale(scheme=self.scheme), orientation='vertical', side='right')
 
-        print(type(pplt))
         axis = [x_axis, y_axis, c_axis] if isinstance(pplt, Scatter) else [x_axis, y_axis]
         
         if self.debug:
@@ -340,7 +347,7 @@ class Cyplot:
         
         if self.debug:
             self.deb = HTML()
-        # self.deb2 = HTML()
+
         y = getattr(self, "vbox", None)
         if y is not None:
             box_layout = Layout(display='flex',
@@ -388,16 +395,23 @@ class Cyplot:
                             if self.debug:
                                 self.deb.value = str(box)
                             cb = self.cbs[k]
-                            cb(box)
-                    #if 'brush' in self.cbs:
-                    #    cb = self.cbs['brush']
-                    #    cb(box)
+                            if not self.dims:
+                                cb(box)
+                            else:
+                                cb(box,[self.alldims.index(d) for d in self.dims])
+
+
             else:
                 y = getattr(self, "cbs", None)
+                # Single selector should have different cbs 
+
                 if y is not None:
                     if 'bar' in self.cbs:
                         cb = self.cbs['bar']
-                        cb(change.new)
+                        if not self.dims:
+                            cb(change.new)
+                        else:
+                            cb(change.new,[self.alldims.index(d) for d in self.dims])
 
         def cb2(change):
             box = self.interactions['brush']['selector'].selected
@@ -408,7 +422,10 @@ class Cyplot:
                     if self.debug:
                         self.deb.value = str(box)
                     cb = self.cbs['brush']
-                    cb(box)
+                    if not self.dims:
+                        cb(box)
+                    else:
+                        cb(box,[self.alldims.index(d) for d in self.dims])
 
         def cb3(change):
             newscales = change.new
@@ -423,8 +440,8 @@ class Cyplot:
         br_intsel.observe(cb1, names=['selected'])  # 'selected'])
         index_sel.observe(cb1, names=['selected'])
         int_sel.observe(cb1, names=['selected'])
-        br_sel.observe(cb2, names=['brushing'])  # 'brushing'])
-        pz.observe(cb3, names=['scales'])  # 'brushing'])
+        br_sel.observe(cb2, names=['brushing']) 
+        pz.observe(cb3, names=['scales'])
 
         self.interactions['brushes'] = {}
         self.interactions['brushes']['selector'] = multi_sel
