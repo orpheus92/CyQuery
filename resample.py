@@ -40,6 +40,8 @@ class Resample:
                 # print("method for generating new samples not recognized")
                 raise ValueError('method for generating new samples not recognized')
 
+
+
     def cb(self, val, dim=None):
         # dim should be a list that specify the dimension for brushed area
 
@@ -47,8 +49,8 @@ class Resample:
             self.yrange = [val[0][0],val[1][0]]            
             
         elif self.p == "bounding_box": 
-            if self.xrange is None:
-                self.xrange = self.xrange_[:]
+            #if self.xrange is None:
+            #    self.xrange = self.xrange_[:]
             if dim:
                 d1,d2 = dim[0],dim[1]
 
@@ -68,7 +70,9 @@ class Resample:
 
             return np.array(self.x)
 
+
     def add_samples(self, num=None):
+        # This should work for both automatic sampling and brushing  
         if num is None:
             num = 1
         # use random sample for now
@@ -118,6 +122,8 @@ class Resample:
         self.xrange_ = []
         for i in range(c):
             self.xrange_.append([xmin[i],xmax[i]])
+        
+        self.xrange = self.xrange_[:]
             
 
 
