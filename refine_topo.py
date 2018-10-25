@@ -1,141 +1,128 @@
 import queue
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 
-def check_fit(*args, **kwargs):
-    """
-    arg: threshold
 
-    kwargs:
-        "check_attr": attr to check, if none passed, will compute parent similarity
-        
-        "greater": if true, partitions with attr greater than threshold will be returned 
+class Refine:
+    def __init__(self, *args, **kwargs):
+        # threshold should be the first positional argument
+        self.threshold = args[0]
 
-        "node": node where the check will be started 
-
-        "partitions": list of partitions that will be checked 
-        "p_order": if true, check will follow the list order of the partition
-                    otherwise, top to bottom
-
-        "tree": tree that will be checked 
-
-        "reg_data": regulus data
-
-        "raw_data": raw data points 
-        
-    
-    """
-    # No matter what, threshold is required to decide whether a partition needs to be resampled 
-    threshold = args[0]
-
-    # define comparator
-    def compare(a,b):
-        # by default, find nodes less than threshold 
-        if "greater" in kwargs and kwargs["greater"] is True:
-            return a>=b
+        if "node" in kwargs:
+            self.node = kwargs["node"]
+        elif "tree" in kwargs:
+            node = getattr(kwargs["tree"],"root")
+            self.node = node
+        elif "nodes" in kwargs:
+            self.nodes = kwargs["nodes"]
         else:
-            return a<b
-
-    if "func" in kwargs:
-        func = kwargs["func"]
-    else: 
-        func = None
-
-    
-    # Get attribute to check 
-    if "check_attr" in kwargs:
-        check = kwargs["check_attr"]
-        reg_data, raw_data = None, None
-    else:
-        # default partent fitness
-        if "reg_data" in kwargs and "raw_data" in kwargs:
-            reg_data, raw_data = kwargs["reg_data"], kwargs["raw_data"]
-            check = None
-        else:
-            print("Need data and rawdata")
-            return 
+            print("Invalid Inputs! ")
+            return
         
+        if "extra_data" in kwargs:
+            self.data = kwargs["extra_data"]
 
-    if "node" in kwargs:
-        node = kwargs["node"]
-            # We agree that we could only count on the partitions with higher persistence. 
-            # We want to go from root to leaves and stop at a leaf when the parent_fitness with that node is low
-        return  find_partitions(node,threshold,check, compare, func, reg_data, raw_data)
-        # return p2sample
-    
-    elif "tree" in kwargs:
-        node = getattr(kwargs["tree"],"root")
-        if node:
-            return find_partitions(node, threshold, check, compare, func, reg_data, raw_data)
-
-        print("Can't find the root of the tree!!!")
-        return 
-    
-    elif "partitions" in kwargs:
-        partitions = kwargs["partitions"]
-        p2sample = []
-        if "p_order" in kwargs and kwargs["p_order"] is True: # if user required to follow order of partitions
-            for p in partitions:
-                if compare(getattr(p,check), threshold):
-                    p2sample.append(p)
+        if "traverse" in kwargs:
+            self.traverse = kwargs["traverse"]
+        
+        # function to compute a measure for a node, take in a node and return a measure
+        if "measure" in kwargs:
+            self.measure = kwargs["measure"]
         else:
-            # by default, assume first partition is the root
-            return find_partitions(partitions[0], threshold,check,compare, func, reg_data, raw_data)
+            self.measure = self.measure_
 
-    else:
-        print("Invalid Inputs! ")
-        return
+        if "return_attr" in kwargs:
+            self.get_return_attr = kwargs["return_attr"]
+        else: 
+            self.get_return_attr = lambda x: x
 
-def find_partitions(node, threshold, check, compare,func=None, reg_data=None, raw_data=None):
-    # Given a node, find leaf nodes that should be resampled
-    outp = []
-    nodes_ = queue.Queue()
-    nodes_.put(node)
-    while not nodes_.empty():
-        cur_node = nodes_.get()
-        for node in cur_node.children:
-            # check partent fitness of this node, if greater than thres, put in queue, else, put in output
-            if node: # Not sure whether None will exists, put here to make sure
-                if not check:
-                    node_val = check_sim(node, reg_data, raw_data) 
-                elif func is None:
-                    node_val = getattr(node, check)
-                else:
-                    node_val = func(getattr(node,check))
-                if compare(node_val, threshold):
-                    outp.append(node)
-                else:
-                    nodes_.put(node)
-                    
-    return outp
-
-def check_sim(node, data, rawdata, attr='id'):
-    # Only checks parent for now 
-    if hasattr(node, attr) and hasattr(node,'parent') and hasattr(node.parent,attr):
-        cid, pid = getattr(node, attr), getattr(node.parent, attr)
-        if cid >=0 and pid>=0:
-            cind, pind = get_pts(data.partitions[cid],data.pts_loc), get_pts(data.partitions[pid],data.pts_loc)
-            if isinstance(rawdata, pd.DataFrame):
-                cdata, pdata = rawdata.loc[cind,:].values, rawdata.loc[pind,:].values
+        # comparator to find the node
+        if "compare" in kwargs:
+            compare = kwargs["compare"]
+            if compare == "less":
+                self.compare = lambda a, b: a < b
+            elif compare == "greater":
+                self.compare = lambda a, b: a > b
+            elif compare == "between":
+                self.compare = lambda a,b: (a >= b[0] and a <= b[1])
+            elif compare == "outside":
+                self.compare = lambda a,b: (a >= b[1] or a <= b[0])
             else:
-                cdata, pdata = rawdata[cind,:], rawdata[pind,:]
-            
-            # Linear coeff for both and similarity 
-            creg, preg = LinearRegression().fit(cdata[:,:-1], cdata[:,-1]), \
-                        LinearRegression().fit(pdata[:,:-1], pdata[:,-1])
-            
-            # fitness
-            cscore, pscore = creg.score(cdata[:,:-1], cdata[:,-1]), preg.score(pdata[:,:-1], pdata[:,-1])
-            # sensitivity
-            ccoef, pcoef = creg.coef_, preg.coef_
-            # intercept
-            cint, pint = creg.intercept_, preg.intercept_
-            # print('cid = ',cid, " pid = ", pid, " cos = ", cosine_similarity(ccoef.reshape(1, -1), pcoef.reshape(1, -1)))
-            return cosine_similarity(ccoef.reshape(1, -1), pcoef.reshape(1, -1))[0][0]
-    return -1  
+                self.compare = compare
+                    
+    def search(self):
+        out = []
+        if hasattr(self, "nodes"):
+            for i in self.nodes:
+                if self.check_measure(i):
+                    out.append(self.get_return_attr(i))
+        elif hasattr(self, "node") and self.traverse == "BFS":
 
-def get_pts(p, loc):
-    idx = [loc[i] for i in range(p['pts_span'][0], p['pts_span'][1])]
-    idx.extend(p['minmax_idx'])
-    return idx
+            nodes_ = queue.Queue()
+            nodes_.put(self.node)
+
+            while not nodes_.empty():
+                cur_node = nodes_.get()
+                for node in cur_node.children:
+                    if node and self.check_measure(node):
+                        out.append(self.get_return_attr(node))
+                    else: 
+                        nodes_.put(node)
+
+            return out
+
+        elif hasattr(self, "node") and self.traverse == "DFS":
+            nodes_ = []
+            nodes_.append(self.node)
+
+            while not nodes_:
+                cur_node = nodes_.pop()
+                for node in cur_node.children:
+                    if node and self.check_measure(node):
+                        out.append(self.get_return_attr(node))
+                    else: 
+                        nodes_.append(node)
+
+            return out
+
+        else: 
+            print("No known traversal method")
+            if hasattr(self, "node") and self.node and self.check_measure(self.node):
+                out.append(self.get_return_attr(self.node))
+
+        return out
+
+    def check_measure(self, node):
+        if hasattr(self, "measure"):
+            if hasattr(self, "data"):
+                val = self.measure(node, self.data)
+            else:
+                val = self.measure(node)
+            return self.compare(val, self.threshold)
+        return False
+    
+
+    def measure_(self, node):
+        from sklearn.linear_model import LinearRegression
+        from sklearn.metrics.pairwise import cosine_similarity
+        
+        attr="id"
+        if hasattr(node, attr) and hasattr(node,'parent') and hasattr(node.parent,attr):
+            cid, pid = getattr(node, attr), getattr(node.parent, attr)
+            if cid >=0 and pid>=0: #check both are valid partitions
+
+                cx, cy = node.data.x.values, node.data.y.values
+                px, py = node.parent.data.x.values, node.parent.data.y.values
+                
+                # Linear coeff for both and similarity 
+                creg, preg = LinearRegression().fit(cx, cy), \
+                            LinearRegression().fit(px, py)
+
+                # fitness
+                cscore, pscore = creg.score(cx, cy), preg.score(px, py)
+                # sensitivity
+                ccoef, pcoef = creg.coef_, preg.coef_
+                # intercept
+                cint, pint = creg.intercept_, preg.intercept_
+
+                return cosine_similarity(ccoef.reshape(1, -1), pcoef.reshape(1, -1))[0][0]
+        return -1  

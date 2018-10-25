@@ -4,128 +4,177 @@ from sklearn import linear_model
 from sklearn.kernel_ridge import KernelRidge
 import pandas as pd
 
-def get_pts(p, loc):
-    idx = [loc[i] for i in range(p['pts_span'][0], p['pts_span'][1])]
-    idx.extend(p['minmax_idx'])
-    return idx
+# This should not be here
+# def get_pts(p, loc):
+#     idx = [loc[i] for i in range(p['pts_span'][0], p['pts_span'][1])]
+#     idx.extend(p['minmax_idx'])
+#     return idx
 
 class Resample:
-    def __init__(self, data=None, x=None, y=None, pred_method="inverse_kernel_ridge", sample_func=None):
-        
-        # if no get_sample function is given, use random sampling 
-        if sample_func is None:
-            self.func = self.resample
-        else:
-            self.func = sample_func
-        
-        self.vals = []
-        self.x = []
-        self.p = pred_method
+    def __init__(
+        self,
+        model=None,
+        sampleFunc=None,
+        sampleAttr='range'
+        ):
 
-        if data is not None:
-            if isinstance(data, pd.DataFrame):
-                x = data.values[:,:-1]
-                y = data.values[:,-1].reshape(-1,1)
-            elif isinstance(data, np.ndarray):
-                x = data[:,:-1]
-                y = data[:,-1].reshape(-1,1)
+        """
+        sampleFunc: a function that should take in a 1 to n-dim intervals, 
+                    number of samples to generate, and generate new samples
+       
+        model: a model that should take 1D input and return nD output after fitting nD pts
+        
+        sampleAttr: whether to sample the range space or domain space 
+        """
+        self.model = model if model else self.model_ 
+        self.sampleFunc = sampleFunc if sampleFunc else self.sampleFunc_
+        self.sampleAttr = sampleAttr
+        
+        self.reset()
+    
+    # ! Reset the data, dimensions, domain, range, clear new samples and current model
+    def reset(self):
+        self.X,self.Y= None, None
+        self.X_,self.Y_ = None, None
+        self.domain_, self.range_ = [], []
+        self.dims, self.val = [], []
+        self.pred = None
+        self.newX_ = None
 
-        if x is not None and y is not None:
-            if self.p == "inverse_kernel_ridge":
-                self.interp(x,y) # [] # This would be combined with regulus later
-            elif self.p == "bounding_box": 
-                self.xrange = None
-                self.compute_range(x,y)
+    # ! Add pts to the current model
+    def add_pts(self, data=None, X=None, Y=None, dims=None, val=None):
+        if X and Y:
+            Y = Y.reshape(-1,1)
+            pass 
+        elif isinstance(data, np.ndarray):
+            #if not dims or not val:
+            #elif isinstance(dims,int) and isinstance(val, int):
+            if type(dims) is int and type(val) is int:
+                X, Y = data[:, :dims], data[:,val].reshape(-1,1)
+            elif type(dims) is list and type(val) is list and type(dims[0]) is int:
+                X, Y = data[:,dims], data[:, val].reshape(-1,1)
             else:
-                # print("method for generating new samples not recognized")
-                raise ValueError('method for generating new samples not recognized')
+                X, Y = data[:, :-1], data[:, -1].reshape(-1,1)
 
+        elif isinstance(data, pd.DataFrame):
+            if type(dims) is int and type(val) is int:
+                X, Y = data.values[:, :dims], data.values[:,val].reshape(-1,1)
+            elif type(dims) is list and type(val) is list and set(dims)<set(data.columns) and set(val)<set(data.columns):
+                X = data[dims].values
+                Y = data[val].values.reshape(-1,1)
+            else:
+                X = data.values[:,:-1]
+                Y = data.values[:,-1].reshape(-1,1)
 
+        self.update_(X,Y)
+    
+    # ! Update the data based pts added 
+    def update_(self, X, Y):
+        # ! Update stored X, Y
+        if self.X is None or self.Y is None:
+            self.X, self.Y = X, Y
+        
+        elif X.shape[1] == self.X.shape[1]:
+            self.X = np.vstack((self.X, X))
+            self.Y = np.vstack((self.Y, Y))
+        else:
+            print("Data reset due to dimension mismatch")
+            self.X_, self.Y_ = self.X, self.Y
+            self.X, self.Y = X, Y
 
-    def cb(self, val, dim=None):
-        # dim should be a list that specify the dimension for brushed area
+        # ! Update Global domain    
+        _,c = self.X.shape
+        xmin = np.amin(self.X, axis=0)
+        xmax = np.amax(self.X, axis=0)
 
-        if self.p == "inverse_kernel_ridge":
-            self.yrange = [val[0][0],val[1][0]]            
-            
-        elif self.p == "bounding_box": 
-            #if self.xrange is None:
-            #    self.xrange = self.xrange_[:]
-            if dim:
-                d1,d2 = dim[0],dim[1]
+        self.domain_ = []
+        for i in range(c):
+            self.domain_.append([xmin[i],xmax[i]])
+        self.domain = self.domain_[:]
 
-                if d1>=0 and d1<len(self.xrange):
-                    self.xrange[d1] = [val[0][0],val[1][0]]
-                
-                if d2>=0 and d2<len(self.xrange):
-                    self.xrange[d2] = [val[0][1],val[1][1]]
+        # ! Update Global range
+        ymin = np.amin(self.Y)
+        ymax = np.amax(self.Y)
+        self.range_ = [ymin,ymax]
+        self.range = self.range_[:]
 
-    def get_input(self):
-        if self.p == "inverse_kernel_ridge":
-            y = np.array(self.vals)
-            y = y.reshape(-1,1)
-            return self.preds(y)
+    # ! Restore to previous state if data is added by accident
+    def restore(self):
+        self.X, self.Y = self.X_, self.Y_
+        self.domain, self.range = self.domain_, self.range_
 
-        elif self.p == "bounding_box": 
+    # ! Build Model based on current points 
+    def build(self):
+        self.pred = self.model(self.X, self.Y)
 
-            return np.array(self.x)
+    # ! Generate number of new samples based on num
+    def generate_samples(self, num=5, rebuild=False):
 
+        if rebuild or not self.pred:
+            self.build()
+        
+        if self.sampleAttr == 'range':
+            newY = self.sampleFunc(self.range, num).reshape(-1,1)
+            newX = self.pred(newY)
+        else:
+            newX = self.sampleFunc(self.domain, num)
 
-    def add_samples(self, num=None):
-        # This should work for both automatic sampling and brushing  
-        if num is None:
-            num = 1
-        # use random sample for now
- 
-        if self.p == "inverse_kernel_ridge":
-            if (not hasattr(self, "yrange")) or self.yrange[0] is None or self.yrange[1] is None:
-                self.yrange = self.yrange_
-            # Generate y
-            for i in range(num):    
-                self.vals.append(self.func(self.yrange))
+        if self.newX_ is None or self.newX_.shape[1]!=newX.shape[1]:
+            self.newX_ = newX
+        else:
+            self.newX_ = np.vstack((self.newX_, newX))
 
-        elif self.p == "bounding_box": 
-            # Fill None with Global range
-            for c in range(len(self.xrange)):
-                if self.xrange[c][0] is None:
-                    self.xrange[c][0] = self.xrange_[c][0]    
-                if self.xrange[c][1] is None:
-                    self.xrange[c][1] = self.xrange_[c][1]
-            # Generate input     
-            for i in range(num):    
-                self.x.append([self.func(x) for x in self.xrange])
+    # ! Return new samples 
+    @property
+    def newsamples(self):
+        return self.newX_
 
-    # Will put random sampler here for simplicity
-    def resample(self, cur_range):
-        return random.uniform(cur_range[0], cur_range[1])
-
-    def interp(self, x,y):
-        # Here will compute linear regression for each dimension and use them to predict x (Inverse)
-        # dims = data.shape[1]-1
-
-        # gloabl yrange         
-        ymin = np.amin(y)
-        ymax = np.amax(y)
-        self.yrange_ = [ymin,ymax]
-
+    # ! default model used
+    def model_(self, x,y):
         clf = KernelRidge(alpha=1.0, kernel='rbf')
         clf.fit(y, x) 
-        self.preds = clf.predict
+        return clf.predict
 
-    def compute_range(self, x,y):
+    # ! default sample function
+    def sampleFunc_(self, ranges, num):        
+        ranges = [ranges] if not isinstance(ranges[0], list) else ranges
+        dim = len(ranges)
+        out = []
+        for j in range(num):
+            cur = []
+            for i in range(dim):
+                cur.append(random.uniform(ranges[i][0], ranges[i][1]))
+            out.append(cur)
+        return np.array(out)
 
-        _,c = x.shape
-        xmin = np.amin(x, axis=0)
-        xmax = np.amax(x, axis=0)
+    # ! CB function to update range/domain based on user's interaction 
+    def change_range(self, val, dim=None):
+        # ! Change the range based on selection
+        if self.sampleAttr == "range":
+            self.range = [val[0][0],val[1][0]]
 
-        # Global xrange 
-        self.xrange_ = []
-        for i in range(c):
-            self.xrange_.append([xmin[i],xmax[i]])
+        # ! To change domain, need to select the dimension 
+        elif dim:
+                d1,d2 = dim[0],dim[1]
+
+                if d1>=0 and d1<len(self.domain):
+                    if val[0][0]:
+                        self.domain[d1][0] = val[0][0]
+                    if val[1][0]:
+                        self.domain[d1][1] = val[1][0]
+                        
+                if d2>=0 and d2<len(self.domain):
+                    if val[0][1]:
+                        self.domain[d2][0] = val[0][1]
+                    if val[1][1]:
+                        self.domain[d2][1] = val[1][1]
+
+
+    def resample_data(self, data, num=5):
+        self.reset()
+        self.add_pts(data)
+        self.build()
+        self.generate_samples(num=num)
         
-        self.xrange = self.xrange_[:]
-            
-
-
-
-        
+def resample(model=None, sampleFunc=None, sampleAttr='range'):
+    return Resample(model=model, sampleFunc=sampleFunc, sampleAttr=sampleAttr)
