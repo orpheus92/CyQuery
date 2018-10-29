@@ -30,6 +30,11 @@ class Resample:
                 x = data[:,:-1]
                 y = data[:,-1].reshape(-1,1)
 
+
+        print("x = ", x)
+
+        print("y = ", y)
+
         if x is not None and y is not None:
             if self.p == "inverse_kernel_ridge":
                 self.interp(x,y) # [] # This would be combined with regulus later
@@ -64,6 +69,12 @@ class Resample:
         if self.p == "inverse_kernel_ridge":
             y = np.array(self.vals)
             y = y.reshape(-1,1)
+            
+            print("y to resample = ", y)
+
+            print("new_x = ", self.preds(y))
+
+
             return self.preds(y)
 
         elif self.p == "bounding_box": 
@@ -71,10 +82,10 @@ class Resample:
             return np.array(self.x)
 
 
-    def add_samples(self, num=None):
+    def add_samples(self, num=1):
         # This should work for both automatic sampling and brushing  
-        if num is None:
-            num = 1
+        #if num is None:
+        #    num = 1
         # use random sample for now
  
         if self.p == "inverse_kernel_ridge":

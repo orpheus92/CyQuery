@@ -7,6 +7,24 @@ class Refine:
         # threshold should be the first positional argument
         self.threshold = args[0]
 
+
+        """
+        "node": any node in the tree structure to start find the partitions of interest
+        "tree": if tree is passed in, then tree.root will be used as the starting node. 
+        "nodes": a list of nodes on which the measure will be computed to find the partition of interest
+
+
+        "measure": a function to compute a measure from a node, by default, it will take the data of the node and compute cosine similarity of linear sensitivity of child/parent node
+
+        "extra_data": if extra_data are passed in the class, it will be used to compute the measure
+
+        "traverse": traverse method for the tree: BFS or DFS
+
+        "compare": the comparator used when comparing the measure with the threshold 
+
+        "return_attr": a function that takes a node and returns a value that user wants, if empty, it will just return nodes of interest
+        
+        """
         if "node" in kwargs:
             self.node = kwargs["node"]
         elif "tree" in kwargs:
@@ -48,6 +66,10 @@ class Refine:
                 self.compare = lambda a,b: (a >= b[1] or a <= b[0])
             else:
                 self.compare = compare
+        else:
+            # By default less than threshold 
+            self.compare = lambda a, b: a < b
+            
                     
     def search(self):
         out = []
@@ -64,6 +86,7 @@ class Refine:
                 cur_node = nodes_.get()
                 for node in cur_node.children:
                     if node and self.check_measure(node):
+                        # print("id = ", self.get_return_attr(node))
                         out.append(self.get_return_attr(node))
                     else: 
                         nodes_.put(node)

@@ -34,8 +34,8 @@ class Resample:
     
     # ! Reset the data, dimensions, domain, range, clear new samples and current model
     def reset(self):
-        self.X,self.Y= None, None
-        self.X_,self.Y_ = None, None
+        self.X, self.Y= None, None
+        self.X_, self.Y_ = None, None
         self.domain_, self.range_ = [], []
         self.dims, self.val = [], []
         self.pred = None
@@ -105,6 +105,8 @@ class Resample:
 
     # ! Build Model based on current points 
     def build(self):
+        # print("self.x = ", self.X)
+        # print("self.y = ", self.Y)
         self.pred = self.model(self.X, self.Y)
 
     # ! Generate number of new samples based on num
@@ -116,6 +118,9 @@ class Resample:
         if self.sampleAttr == 'range':
             newY = self.sampleFunc(self.range, num).reshape(-1,1)
             newX = self.pred(newY)
+
+            # print("y to resample = ", newY)
+            # print("new_x = ", newX)
         else:
             newX = self.sampleFunc(self.domain, num)
 
@@ -173,6 +178,8 @@ class Resample:
     def resample_data(self, data, num=5):
         self.reset()
         self.add_pts(data)
+        # print("domain = ", self.domain)
+        # print("rang = ", self.range)
         self.build()
         self.generate_samples(num=num)
         
